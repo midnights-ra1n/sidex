@@ -111,11 +111,16 @@ jobs:
           ls -la dist-artifacts/
 
       - name: Sign RPM package (GPG)
-        if: runner.os == 'Linux' && secrets.RPM_GPG_PRIVATE_KEY != ''
+        if: runner.os == 'Linux'
         env:
           RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
           RPM_GPG_PASSPHRASE: ${{ secrets.RPM_GPG_PASSPHRASE }}
         run: |
+          if [ -z "$RPM_GPG_PRIVATE_KEY" ]; then
+            echo "RPM_GPG_PRIVATE_KEY secret not set, skipping RPM signing."
+            exit 0
+          fi
+
           set -euo pipefail
 
           echo "$RPM_GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import

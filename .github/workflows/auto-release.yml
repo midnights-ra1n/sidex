@@ -1,0 +1,47 @@
+name: Auto Release
+
+# Every push to main gets built, signed, and published automatically — no
+# manual tagging. See release.yml for the actual build/sign/publish steps;
+# this workflow only computes the next version and dispatches it.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  tag-and-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        run: |
+          LAST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            NEXT=$(jq -r .version package.json)
+          else
+            VER=${LAST_TAG#v}
+            MAJOR=$(echo "$VER" | cut -d. -f1)
+            MINOR=$(echo "$VER" | cut -d. -f2)
+            PATCH=$(echo "$VER" | cut -d. -f3)
+            NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Last tag: ${LAST_TAG:-none} -> next version: $NEXT"
+
+      - name: Dispatch release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run release.yml --ref main -f version="${{ steps.version.outputs.next }}"
