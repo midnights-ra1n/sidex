@@ -81,19 +81,17 @@ impl HybridAssembler {
             ContextRegion::SearchResults => {
                 if let Some(results) = data.downcast_ref::<Vec<SearchResult>>() {
                     Some(self.toon.serialize(results))
-                } else if let Some(chunks) = data.downcast_ref::<Vec<Chunk>>() {
-                    Some(self.toon.serialize(chunks))
                 } else {
-                    None
+                    data.downcast_ref::<Vec<Chunk>>()
+                        .map(|chunks| self.toon.serialize(chunks))
                 }
             }
             ContextRegion::CodeContent => {
                 if let Some(chunks) = data.downcast_ref::<Vec<Chunk>>() {
                     Some(toon::to_toon_nested(chunks))
-                } else if let Some(chunk) = data.downcast_ref::<Chunk>() {
-                    Some(toon::to_toon_nested(std::slice::from_ref(chunk)))
                 } else {
-                    None
+                    data.downcast_ref::<Chunk>()
+                        .map(|chunk| toon::to_toon_nested(std::slice::from_ref(chunk)))
                 }
             }
             ContextRegion::Rules => {
@@ -107,42 +105,32 @@ impl HybridAssembler {
             }
             ContextRegion::FileTree => {
                 if let Some(paths) = data.downcast_ref::<Vec<String>>() {
-                    let refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+                    let refs: Vec<&str> = paths.iter().map(std::string::String::as_str).collect();
                     Some(self.markdown.format_file_tree(&refs))
                 } else {
                     None
                 }
             }
-            ContextRegion::Diagnostics => {
-                if let Some(diags) = data.downcast_ref::<Vec<Diagnostic>>() {
-                    Some(format_diagnostics(diags))
-                } else {
-                    None
-                }
-            }
+            ContextRegion::Diagnostics => data
+                .downcast_ref::<Vec<Diagnostic>>()
+                .map(|diags| format_diagnostics(diags)),
             ContextRegion::AgentMessage => {
                 if let Some(msg) = data.downcast_ref::<String>() {
                     Some(msg.clone())
-                } else if let Some(msg) = data.downcast_ref::<&str>() {
-                    Some((*msg).to_string())
                 } else {
-                    None
+                    data.downcast_ref::<&str>().map(|msg| (*msg).to_string())
                 }
             }
-            ContextRegion::ConversationHistory => {
-                if let Some(messages) = data.downcast_ref::<Vec<ConversationMessage>>() {
-                    Some(format_conversation(messages))
-                } else {
-                    None
-                }
-            }
+            ContextRegion::ConversationHistory => data
+                .downcast_ref::<Vec<ConversationMessage>>()
+                .map(|messages| format_conversation(messages)),
         }
     }
 }
 
 /// Estimate token count using chars/4 approximation.
 pub fn estimate_tokens(text: &str) -> usize {
-    (text.len() + 3) / 4
+    text.len().div_ceil(4)
 }
 
 /// Estimate tokens for a formatted region without materializing the full string.

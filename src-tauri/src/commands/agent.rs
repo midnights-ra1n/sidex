@@ -80,15 +80,12 @@ pub async fn agent_execute_tool(
         }
     }
 
-    let _permit = match tool_semaphore().acquire().await {
-        Ok(p) => p,
-        Err(_) => {
-            return Ok(AgentToolResponse {
-                tool_call_id: fallback_id,
-                output: String::new(),
-                error: "tool execution semaphore closed".to_string(),
-            });
-        }
+    let Ok(_permit) = tool_semaphore().acquire().await else {
+        return Ok(AgentToolResponse {
+            tool_call_id: fallback_id,
+            output: String::new(),
+            error: "tool execution semaphore closed".to_string(),
+        });
     };
 
     let result = tauri::async_runtime::spawn_blocking(move || {

@@ -147,7 +147,7 @@ pub async fn browser_navigate(
     // Wait for optional selector
     if let Some(selector) = wait_for {
         let wait_js = format!(
-            r#"(async () => {{
+            r"(async () => {{
                 const maxWait = 10000;
                 const interval = 200;
                 let elapsed = 0;
@@ -157,7 +157,7 @@ pub async fn browser_navigate(
                     elapsed += interval;
                 }}
                 return 'timeout';
-            }})()"#,
+            }})()",
             selector = serde_json::to_string(&selector).unwrap_or_default()
         );
         let _ = eval_js(&window, &wait_js).await;
@@ -179,6 +179,7 @@ pub async fn browser_navigate(
 }
 
 /// Takes a screenshot of the page or a specific element via canvas capture.
+#[allow(clippy::cast_possible_truncation)]
 #[tauri::command]
 pub async fn browser_screenshot(
     app: AppHandle,
@@ -192,7 +193,7 @@ pub async fn browser_screenshot(
 
     let js = match selector {
         Some(sel) => format!(
-            r#"(async () => {{
+            r"(async () => {{
                 const el = document.querySelector({sel});
                 if (!el) return JSON.stringify({{error: 'Element not found'}});
                 const rect = el.getBoundingClientRect();
@@ -209,17 +210,17 @@ pub async fn browser_screenshot(
                     height: Math.round(rect.height),
                     html: el.outerHTML.substring(0, 5000)
                 }});
-            }})()"#,
+            }})()",
             sel = serde_json::to_string(&sel).unwrap_or_default()
         ),
-        None => r#"(function() {
+        None => r"(function() {
             return JSON.stringify({
                 dataUrl: '',
                 width: window.innerWidth,
                 height: window.innerHeight,
                 html: document.documentElement.outerHTML.substring(0, 10000)
             });
-        })()"#
+        })()"
             .to_string(),
     };
 
@@ -239,8 +240,14 @@ pub async fn browser_screenshot(
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
-        width: parsed.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        height: parsed.get("height").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        width: parsed
+            .get("width")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32,
+        height: parsed
+            .get("height")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32,
     })
 }
 
@@ -256,13 +263,13 @@ pub async fn browser_click(
         .ok_or("No browser window active. Call browser_navigate first.")?;
 
     let js = format!(
-        r#"(function() {{
+        r"(function() {{
             const el = document.querySelector({sel});
             if (!el) return 'error: element not found for selector';
             el.scrollIntoView({{block: 'center'}});
             el.click();
             return 'clicked';
-        }})()"#,
+        }})()",
         sel = serde_json::to_string(&selector).unwrap_or_default()
     );
 
@@ -285,7 +292,7 @@ pub async fn browser_type(
 
     let clear_flag = clear.unwrap_or(false);
     let js = format!(
-        r#"(function() {{
+        r"(function() {{
             const el = document.querySelector({sel});
             if (!el) return 'error: element not found for selector';
             el.scrollIntoView({{block: 'center'}});
@@ -299,7 +306,7 @@ pub async fn browser_type(
             el.dispatchEvent(new Event('input', {{bubbles: true}}));
             el.dispatchEvent(new Event('change', {{bubbles: true}}));
             return 'typed ' + text.length + ' chars';
-        }})()"#,
+        }})()",
         sel = serde_json::to_string(&selector).unwrap_or_default(),
         clear = if clear_flag { "true" } else { "false" },
         text = serde_json::to_string(&text).unwrap_or_default()
@@ -310,6 +317,7 @@ pub async fn browser_type(
 
 /// Reads text content from elements matching the given CSS selector.
 /// Truncates output to `max_length` characters (default 5000).
+#[allow(clippy::cast_possible_truncation)]
 #[tauri::command]
 pub async fn browser_read(
     app: AppHandle,
@@ -325,7 +333,7 @@ pub async fn browser_read(
     let sel_str = selector.unwrap_or_else(|| "body".to_string());
 
     let js = format!(
-        r#"(function() {{
+        r"(function() {{
             const el = document.querySelector({sel});
             if (!el) return JSON.stringify({{error: 'element not found'}});
             const fullText = el.innerText || el.textContent || '';
@@ -333,7 +341,7 @@ pub async fn browser_read(
             const truncated = fullText.length > limit;
             const text = truncated ? fullText.substring(0, limit) : fullText;
             return JSON.stringify({{text, length: fullText.length, truncated}});
-        }})()"#,
+        }})()",
         sel = serde_json::to_string(&sel_str).unwrap_or_default(),
         limit = limit
     );
@@ -354,10 +362,13 @@ pub async fn browser_read(
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
-        length: parsed.get("length").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        length: parsed
+            .get("length")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as usize,
         truncated: parsed
             .get("truncated")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false),
     })
 }
@@ -388,14 +399,10 @@ pub async fn browser_scroll(
     };
 
     let js = format!(
-        r#"(function() {{
+        r"(function() {{
             window.scrollBy({x}, {y});
-            return 'scrolled ' + '{dir}' + ' by ' + Math.abs({amt}) + 'px (scrollY=' + window.scrollY + ')';
-        }})()"#,
-        x = x,
-        y = y,
-        dir = direction,
-        amt = amount
+            return 'scrolled ' + '{direction}' + ' by ' + Math.abs({amount}) + 'px (scrollY=' + window.scrollY + ')';
+        }})()"
     );
 
     eval_js(&window, &js).await
@@ -440,9 +447,9 @@ pub async fn browser_eval(
         .ok_or("No browser window active. Call browser_navigate first.")?;
 
     let wrapped = format!(
-        r#"(function() {{
+        r"(function() {{
             try {{
-                const __result = (function() {{ return {expr}; }})();
+                const __result = (function() {{ return {expression}; }})();
                 if (__result === undefined) return JSON.stringify({{result: 'undefined', error: null}});
                 if (__result === null) return JSON.stringify({{result: 'null', error: null}});
                 const str = (typeof __result === 'object') ? JSON.stringify(__result) : String(__result);
@@ -450,8 +457,7 @@ pub async fn browser_eval(
             }} catch(e) {{
                 return JSON.stringify({{result: '', error: e.message || String(e)}});
             }}
-        }})()"#,
-        expr = expression
+        }})()"
     );
 
     let raw = eval_js(&window, &wrapped)
@@ -470,7 +476,7 @@ pub async fn browser_eval(
         error: parsed
             .get("error")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .filter(|s| !s.is_empty()),
     })
 }
@@ -538,7 +544,7 @@ fn ensure_browser_window(app: &AppHandle, state: &State<'_, BrowserState>) -> Re
 /// Injects the console-capture override script into the webview.
 /// Overrides console.log/warn/error to forward messages via Tauri IPC.
 fn inject_console_capture(window: &tauri::WebviewWindow) -> Result<(), String> {
-    let script = r#"
+    let script = r"
         (function() {
             if (window.__sidex_console_hooked) return;
             window.__sidex_console_hooked = true;
@@ -566,7 +572,7 @@ fn inject_console_capture(window: &tauri::WebviewWindow) -> Result<(), String> {
             console.error = function() { capture('error', arguments); orig.error.apply(null, arguments); };
             console.info = function() { capture('info', arguments); orig.info.apply(null, arguments); };
         })();
-    "#;
+    ";
 
     window
         .eval(script)
@@ -583,24 +589,22 @@ async fn eval_js(window: &tauri::WebviewWindow, js: &str) -> Result<String, Stri
     let callback_id = uuid::Uuid::new_v4().to_string().replace('-', "");
 
     let wrapped = format!(
-        r#"(async function() {{
+        r"(async function() {{
             try {{
                 const __r = await (async function() {{ return {js}; }})();
                 window.__TAURI_INTERNALS__.invoke('__browser_console_log', {{
-                    level: '__eval_result_{id}',
+                    level: '__eval_result_{callback_id}',
                     msg: typeof __r === 'string' ? __r : JSON.stringify(__r),
                     ts: Date.now()
                 }});
             }} catch(e) {{
                 window.__TAURI_INTERNALS__.invoke('__browser_console_log', {{
-                    level: '__eval_error_{id}',
+                    level: '__eval_error_{callback_id}',
                     msg: e.message || String(e),
                     ts: Date.now()
                 }});
             }}
-        }})()"#,
-        js = js,
-        id = callback_id
+        }})()"
     );
 
     window
@@ -637,7 +641,7 @@ async fn eval_js(window: &tauri::WebviewWindow, js: &str) -> Result<String, Stri
 /// Captures a screenshot using a canvas-based approach.
 /// Returns the image as a base64-encoded data URL.
 async fn capture_screenshot_js(window: &tauri::WebviewWindow) -> Result<String, String> {
-    let js = r#"(async function() {
+    let js = r"(async function() {
         // Simple viewport capture via SVG foreignObject approach
         const width = document.documentElement.scrollWidth;
         const height = Math.min(document.documentElement.scrollHeight, window.innerHeight);
@@ -651,7 +655,7 @@ async fn capture_screenshot_js(window: &tauri::WebviewWindow) -> Result<String, 
             viewport: { width: window.innerWidth, height: window.innerHeight },
             bodyLength: document.body.innerText.length
         });
-    })()"#;
+    })()";
 
     eval_js(window, js).await
 }

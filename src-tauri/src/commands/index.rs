@@ -5,6 +5,10 @@
 //! - Trigram indexing for fuzzy/substring search
 //! - Incremental updates for file changes
 //! - Multi-threaded indexing with Rayon
+//!
+//! Not yet wired into `generate_handler!` — kept building against, allowed
+//! dead until it's hooked up to the app.
+#![allow(dead_code)]
 
 use dashmap::DashMap;
 use rayon::prelude::*;

@@ -84,6 +84,9 @@ impl ContextPredictor {
 
     /// Record that a file was accessed and update co-occurrence statistics.
     pub fn record_access(&mut self, file_path: &str) {
+        // Cap cooccurrence map to prevent unbounded growth
+        const MAX_COOCCURRENCE_ENTRIES: usize = 5_000;
+
         let window = 3usize;
         let start = self.access_history.len().saturating_sub(window);
         for prev in &self.access_history[start..] {
@@ -100,11 +103,9 @@ impl ContextPredictor {
             self.access_history.drain(..100);
         }
 
-        // Cap cooccurrence map to prevent unbounded growth
-        const MAX_COOCCURRENCE_ENTRIES: usize = 5_000;
         if self.cooccurrence.len() > MAX_COOCCURRENCE_ENTRIES {
             let mut entries: Vec<((String, String), u32)> = self.cooccurrence.drain().collect();
-            entries.sort_by(|a, b| b.1.cmp(&a.1));
+            entries.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
             entries.truncate(MAX_COOCCURRENCE_ENTRIES / 2);
             self.cooccurrence = entries.into_iter().collect();
         }
@@ -208,7 +209,7 @@ impl ContextPredictor {
                 n.file_path != accessed_file
                     && Path::new(&n.file_path)
                         .parent()
-                        .map_or(false, |p| p.to_string_lossy() == dir)
+                        .is_some_and(|p| p.to_string_lossy() == dir)
             })
             .map(|n| n.file_path.as_str())
             .collect();
@@ -231,7 +232,7 @@ impl ContextPredictor {
             if a != accessed_file {
                 continue;
             }
-            let boost = (*count as f64 * 0.10).min(0.40);
+            let boost = (f64::from(*count) * 0.10).min(0.40);
             let entry = scored
                 .entry(b.clone())
                 .or_insert((0.0, PredictionReason::RecentAccess));
@@ -243,9 +244,8 @@ impl ContextPredictor {
 /// Generate plausible test-companion paths for a source file.
 fn infer_test_companions(file_path: &str) -> Vec<String> {
     let p = Path::new(file_path);
-    let stem = match p.file_stem().and_then(|s| s.to_str()) {
-        Some(s) => s,
-        None => return vec![],
+    let Some(stem) = p.file_stem().and_then(|s| s.to_str()) else {
+        return vec![];
     };
     let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
     let dir = p
@@ -293,11 +293,7 @@ fn infer_test_companions(file_path: &str) -> Vec<String> {
             companions.push(format!("{prefix}test_{stem}.py"));
             companions.push(format!("{prefix}{stem}_test.py"));
         }
-        "ts" | "tsx" => {
-            companions.push(format!("{prefix}{stem}.test.{ext}"));
-            companions.push(format!("{prefix}{stem}.spec.{ext}"));
-        }
-        "js" | "jsx" => {
+        "ts" | "tsx" | "js" | "jsx" => {
             companions.push(format!("{prefix}{stem}.test.{ext}"));
             companions.push(format!("{prefix}{stem}.spec.{ext}"));
         }
@@ -454,13 +450,11 @@ mod tests {
         let validate_conf = predictions
             .iter()
             .find(|p| p.file_path == "src/auth/validate.go")
-            .map(|p| p.confidence)
-            .unwrap_or(0.0);
+            .map_or(0.0, |p| p.confidence);
         let config_conf = predictions
             .iter()
             .find(|p| p.file_path == "src/auth/config.go")
-            .map(|p| p.confidence)
-            .unwrap_or(0.0);
+            .map_or(0.0, |p| p.confidence);
 
         assert!(
             validate_conf > config_conf,

@@ -116,7 +116,7 @@ impl ReflexionStore {
                 entry.id,
                 entry.task_description,
                 entry.attempt,
-                entry.succeeded as i32,
+                i32::from(entry.succeeded),
                 entry.reflection,
                 entry.code_context,
                 entry.error_type,
@@ -156,7 +156,7 @@ impl ReflexionStore {
                     entry.id,
                     entry.task_description,
                     entry.attempt,
-                    entry.succeeded as i32,
+                    i32::from(entry.succeeded),
                     entry.reflection,
                     entry.code_context,
                     entry.error_type,
@@ -174,6 +174,7 @@ impl ReflexionStore {
 
     /// Full-text search for relevant reflexion entries.
     /// Returns entries ranked by FTS5 relevance, filtered by minimum confidence.
+    #[allow(clippy::cast_possible_wrap)]
     pub fn search(
         &self,
         query: &str,
@@ -221,6 +222,7 @@ impl ReflexionStore {
     }
 
     /// Get all entries above a confidence threshold, ordered by confidence descending.
+    #[allow(clippy::cast_possible_wrap)]
     pub fn get_above_confidence(
         &self,
         min_confidence: f64,
@@ -243,6 +245,7 @@ impl ReflexionStore {
     }
 
     /// Get entries by error type.
+    #[allow(clippy::cast_possible_wrap)]
     pub fn get_by_error_type(&self, error_type: &str, limit: usize) -> Result<Vec<ReflexionEntry>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -303,6 +306,7 @@ impl ReflexionStore {
     }
 
     /// Total number of stored entries.
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     pub fn count(&self) -> Result<usize> {
         let conn = self.conn.lock().unwrap();
         let n: i64 = conn
@@ -367,7 +371,7 @@ mod tests {
             } else {
                 Some("logic".to_string())
             },
-            timestamp: 1700000000,
+            timestamp: 1_700_000_000,
             confidence: 0.7,
             usage_count: 0,
             helped_count: 0,

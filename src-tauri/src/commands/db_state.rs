@@ -1,3 +1,8 @@
+// The recent-files/recent-workspaces commands below aren't yet wired into
+// `generate_handler!` — kept building against, allowed dead until they're
+// hooked up to the app.
+#![allow(dead_code)]
+
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;

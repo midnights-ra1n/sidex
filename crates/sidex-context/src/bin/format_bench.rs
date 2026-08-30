@@ -56,6 +56,7 @@ struct CodeChunk {
 
 // --- Data Generation ---
 
+#[allow(clippy::cast_precision_loss)]
 fn generate_search_results(n: usize) -> Vec<SearchResult> {
     let files = [
         "src/auth/handler.rs",
@@ -202,6 +203,7 @@ fn generate_diagnostics(n: usize) -> Vec<Diagnostic> {
         .collect()
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_code_chunks(n: usize, lines_per_chunk: usize) -> Vec<CodeChunk> {
     let templates = [
         (
@@ -224,7 +226,7 @@ fn generate_code_chunks(n: usize, lines_per_chunk: usize) -> Vec<CodeChunk> {
         ),
         (
             "src/db/connection.rs",
-            r#"pub struct ConnectionPool {
+            r"pub struct ConnectionPool {
     pool: Pool<Postgres>,
     max_size: u32,
     timeout: Duration,
@@ -239,7 +241,7 @@ impl ConnectionPool {
             .await?;
         Ok(Self { pool, max_size: config.max_connections, timeout: Duration::from_secs(config.timeout_secs) })
     }
-}"#,
+}",
         ),
         (
             "src/api/routes.rs",
@@ -261,7 +263,7 @@ impl ConnectionPool {
         ),
         (
             "src/models/user.rs",
-            r#"#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+            r"#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
     pub id: Uuid,
     pub email: String,
@@ -275,7 +277,7 @@ pub struct User {
     pub avatar_url: Option<String>,
     pub preferences: serde_json::Value,
     pub org_id: Option<Uuid>,
-}"#,
+}",
         ),
         (
             "src/services/payment.rs",
@@ -451,7 +453,7 @@ fn to_yaml(
         )
         .unwrap();
         for line in c.content.lines() {
-            write!(out, "      {}\n", line).unwrap();
+            writeln!(out, "      {line}").unwrap();
         }
     }
     out
@@ -465,9 +467,9 @@ fn to_csv(
 ) -> String {
     let mut out = String::from("# search_results\nfile,line,name,kind,score,snippet\n");
     for r in sr {
-        write!(
+        writeln!(
             out,
-            "{},{},{},{},{:.3},\"{}\"\n",
+            "{},{},{},{},{:.3},\"{}\"",
             r.file_path,
             r.line,
             r.name,
@@ -479,13 +481,13 @@ fn to_csv(
     }
     out.push_str("\n# file_tree\npath,size,modified\n");
     for f in ft {
-        write!(out, "{},{},{}\n", f.path, f.size, f.modified).unwrap();
+        writeln!(out, "{},{},{}", f.path, f.size, f.modified).unwrap();
     }
     out.push_str("\n# diagnostics\nfile,line,severity,message,code\n");
     for d in dg {
-        write!(
+        writeln!(
             out,
-            "{},{},{},\"{}\",{}\n",
+            "{},{},{},\"{}\",{}",
             d.file,
             d.line,
             d.severity,
@@ -505,9 +507,9 @@ fn to_markdown(
 ) -> String {
     let mut out = String::from("## Search Results\n\n| File | Line | Name | Kind | Score | Snippet |\n|------|------|------|------|-------|---------|\n");
     for r in sr {
-        write!(
+        writeln!(
             out,
-            "| {} | {} | {} | {} | {:.3} | `{}` |\n",
+            "| {} | {} | {} | {} | {:.3} | `{}` |",
             r.file_path,
             r.line,
             r.name,
@@ -519,13 +521,13 @@ fn to_markdown(
     }
     out.push_str("\n## File Tree\n\n| Path | Size | Modified |\n|------|------|----------|\n");
     for f in ft {
-        write!(out, "| {} | {} | {} |\n", f.path, f.size, f.modified).unwrap();
+        writeln!(out, "| {} | {} | {} |", f.path, f.size, f.modified).unwrap();
     }
     out.push_str("\n## Diagnostics\n\n| File | Line | Severity | Message | Code |\n|------|------|----------|---------|------|\n");
     for d in dg {
-        write!(
+        writeln!(
             out,
-            "| {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} |",
             d.file, d.line, d.severity, d.message, d.code
         )
         .unwrap();
@@ -559,27 +561,22 @@ fn to_toon(
     }
     out.push_str("\n[file_tree]\n");
     for f in ft {
-        write!(out, "  {} [{}B] @{}\n", f.path, f.size, f.modified).unwrap();
+        writeln!(out, "  {} [{}B] @{}", f.path, f.size, f.modified).unwrap();
     }
     out.push_str("\n[diagnostics]\n");
     for d in dg {
-        write!(
+        writeln!(
             out,
-            "  {} :{} [{}] {} ({})\n",
+            "  {} :{} [{}] {} ({})",
             d.file, d.line, d.severity, d.message, d.code
         )
         .unwrap();
     }
     out.push_str("\n[code]\n");
     for c in ch {
-        write!(
-            out,
-            "  --- {} L{}-{} ---\n",
-            c.path, c.start_line, c.end_line
-        )
-        .unwrap();
+        writeln!(out, "  --- {} L{}-{} ---", c.path, c.start_line, c.end_line).unwrap();
         for line in c.content.lines() {
-            write!(out, "  {}\n", line).unwrap();
+            writeln!(out, "  {line}").unwrap();
         }
     }
     out
@@ -593,22 +590,22 @@ fn to_plain(
 ) -> String {
     let mut out = String::new();
     for r in sr {
-        write!(
+        writeln!(
             out,
-            "{}:{} {} {} {:.2} {}\n",
+            "{}:{} {} {} {:.2} {}",
             r.file_path, r.line, r.name, r.kind, r.score, r.snippet
         )
         .unwrap();
     }
     out.push('\n');
     for f in ft {
-        write!(out, "{} {} {}\n", f.path, f.size, f.modified).unwrap();
+        writeln!(out, "{} {} {}", f.path, f.size, f.modified).unwrap();
     }
     out.push('\n');
     for d in dg {
-        write!(
+        writeln!(
             out,
-            "{}:{} {} {} {}\n",
+            "{}:{} {} {} {}",
             d.file, d.line, d.severity, d.message, d.code
         )
         .unwrap();
@@ -633,9 +630,9 @@ fn to_scf(
 ) -> String {
     let mut out = String::from("@S\n");
     for r in sr {
-        write!(
+        writeln!(
             out,
-            "s|{}|{}|{}|{}|{:.2}|{}\n",
+            "s|{}|{}|{}|{}|{:.2}|{}",
             r.file_path,
             r.line,
             r.name,
@@ -647,13 +644,13 @@ fn to_scf(
     }
     out.push_str("@F\n");
     for f in ft {
-        write!(out, "f|{}|{}|{}\n", f.path, f.size, f.modified).unwrap();
+        writeln!(out, "f|{}|{}|{}", f.path, f.size, f.modified).unwrap();
     }
     out.push_str("@D\n");
     for d in dg {
-        write!(
+        writeln!(
             out,
-            "d|{}|{}|{}|{}|{}\n",
+            "d|{}|{}|{}|{}|{}",
             d.file,
             d.line,
             d.severity.chars().next().unwrap(),
@@ -664,9 +661,9 @@ fn to_scf(
     }
     out.push_str("@C\n");
     for c in ch {
-        write!(
+        writeln!(
             out,
-            "c|{}|{}|{}|{}\n",
+            "c|{}|{}|{}|{}",
             c.path,
             c.start_line,
             c.end_line,
@@ -679,6 +676,7 @@ fn to_scf(
 
 // --- Measurement & Reporting ---
 
+#[allow(clippy::cast_precision_loss)]
 fn run_benchmark(sr: &[SearchResult], ft: &[FileTreeEntry], dg: &[Diagnostic], ch: &[CodeChunk]) {
     let formats: Vec<(&str, String)> = vec![
         ("JSON (pretty)", to_json_pretty(sr, ft, dg, ch)),
@@ -722,11 +720,11 @@ fn run_benchmark(sr: &[SearchResult], ft: &[FileTreeEntry], dg: &[Diagnostic], c
     }
 
     println!(
-        "\n  Data points: {}  |  Baseline (JSON pretty): {} bytes, {} tokens",
-        data_points, baseline_bytes, baseline_tokens
+        "\n  Data points: {data_points}  |  Baseline (JSON pretty): {baseline_bytes} bytes, {baseline_tokens} tokens"
     );
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn estimate_tokens(s: &str) -> usize {
     // More realistic cl100k_base approximation:
     // - Whitespace/newlines compress well (~6 chars/token)
@@ -745,17 +743,10 @@ fn estimate_tokens(s: &str) -> usize {
                     run += 1;
                     i += 1;
                 }
-                token_est += (run as f64 / 4.0).ceil();
+                token_est += (f64::from(run) / 4.0).ceil();
             }
-            b'\n' | b'\r' => {
-                token_est += 1.0;
-                i += 1;
-            }
-            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b',' | b';' => {
-                token_est += 1.0;
-                i += 1;
-            }
-            b'"' | b':' | b'|' | b'/' | b'.' | b'@' | b'#' | b'>' | b'<' | b'-' | b'=' => {
+            b'\n' | b'\r' | b'{' | b'}' | b'[' | b']' | b'(' | b')' | b',' | b';' | b'"' | b':'
+            | b'|' | b'/' | b'.' | b'@' | b'#' | b'>' | b'<' | b'-' | b'=' => {
                 token_est += 1.0;
                 i += 1;
             }
@@ -791,13 +782,14 @@ fn estimate_tokens(s: &str) -> usize {
                     run += 1;
                     i += 1;
                 }
-                token_est += (run as f64 / 3.8).ceil();
+                token_est += (f64::from(run) / 3.8).ceil();
             }
         }
     }
     token_est.ceil() as usize
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn compute_overhead(content: &str) -> f64 {
     let structural_chars: usize = content
         .chars()

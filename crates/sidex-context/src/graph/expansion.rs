@@ -10,8 +10,7 @@ fn edge_priority(kind: &EdgeKind) -> f64 {
         EdgeKind::Calls => 1.0,
         EdgeKind::Contains => 0.8,
         EdgeKind::Imports => 0.6,
-        EdgeKind::Inherits => 0.7,
-        EdgeKind::Implements => 0.7,
+        EdgeKind::Inherits | EdgeKind::Implements => 0.7,
         EdgeKind::References => 0.3,
     }
 }
@@ -20,6 +19,7 @@ fn edge_priority(kind: &EdgeKind) -> f64 {
 ///
 /// Returns additional chunk IDs (not in the initial set) scored by relevance,
 /// sorted descending and truncated to `max_expansion`.
+#[allow(clippy::implicit_hasher)]
 pub fn expand_results(
     initial_chunk_ids: &[String],
     graph: &CodeGraph,

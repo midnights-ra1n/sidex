@@ -1,3 +1,8 @@
+// Tauri commands take their deserialized IPC arguments by value.
+#![allow(clippy::needless_pass_by_value)]
+
+use std::fmt::Write as _;
+
 use serde::{Deserialize, Serialize};
 use sidex_context::format::toon::serialize_array;
 
@@ -23,18 +28,15 @@ pub fn context_search_toon(
     let fmt = format.unwrap_or_else(|| "toon".to_string());
 
     match fmt.as_str() {
-        "toon" => Ok(serialize_array("results", &results)),
         "scf" => {
             let mut out = String::new();
-            out.push_str(&format!(
-                "@search[{}] file|line|name|kind|score\n",
-                results.len()
-            ));
+            let _ = writeln!(out, "@search[{}] file|line|name|kind|score", results.len());
             for r in &results {
-                out.push_str(&format!(
-                    "{}|{}|{}|{}|{:.2}\n",
+                let _ = writeln!(
+                    out,
+                    "{}|{}|{}|{}|{:.2}",
                     r.file, r.line, r.name, r.kind, r.score
-                ));
+                );
             }
             Ok(out)
         }
@@ -54,6 +56,9 @@ pub struct DiagnosticEntry {
 }
 
 /// Format diagnostic entries into TOON serialization for context injection.
+// `Result` is kept for a consistent Tauri IPC error channel across the
+// format commands in this file, even though this one never fails.
+#[allow(clippy::unnecessary_wraps)]
 #[tauri::command]
 pub fn format_diagnostics_toon(diagnostics: Vec<DiagnosticEntry>) -> Result<String, String> {
     Ok(serialize_array("diagnostics", &diagnostics))
@@ -68,6 +73,7 @@ pub struct FileEntry {
 }
 
 /// Format a flat file-tree listing into TOON serialization for context injection.
+#[allow(clippy::unnecessary_wraps)]
 #[tauri::command]
 pub fn format_file_tree_toon(entries: Vec<FileEntry>) -> Result<String, String> {
     Ok(serialize_array("files", &entries))

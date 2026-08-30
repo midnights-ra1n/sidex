@@ -65,6 +65,9 @@ pub fn get_all_env() -> std::collections::HashMap<String, String> {
         .collect()
 }
 
+// Not yet wired into `generate_handler!` — kept building against, allowed
+// dead until it's hooked up to the app.
+#[allow(dead_code)]
 #[tauri::command]
 pub fn get_shell() -> String {
     env::var("SHELL").unwrap_or_else(|_| {

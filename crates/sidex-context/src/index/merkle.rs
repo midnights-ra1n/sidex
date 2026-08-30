@@ -46,8 +46,10 @@ fn build_node(path: &Path, root: &Path) -> anyhow::Result<MerkleNode> {
     }
 
     let mut children = Vec::new();
-    let mut entries: Vec<_> = std::fs::read_dir(path)?.filter_map(|e| e.ok()).collect();
-    entries.sort_by_key(|e| e.file_name());
+    let mut entries: Vec<_> = std::fs::read_dir(path)?
+        .filter_map(std::result::Result::ok)
+        .collect();
+    entries.sort_by_key(std::fs::DirEntry::file_name);
 
     for entry in entries {
         let name = entry.file_name().to_string_lossy().to_string();
@@ -133,7 +135,7 @@ pub fn diff_trees(old: &MerkleNode, new: &MerkleNode) -> MerkleDiff {
     result
 }
 
-/// Flatten a tree into a hash map of file_path → content_hash for fast lookup.
+/// Flatten a tree into a hash map of `file_path` → `content_hash` for fast lookup.
 pub fn flatten(node: &MerkleNode) -> HashMap<PathBuf, [u8; 32]> {
     let mut map = HashMap::new();
     flatten_inner(node, &mut map);

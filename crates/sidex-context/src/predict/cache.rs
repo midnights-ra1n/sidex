@@ -62,7 +62,7 @@ impl FileCache {
         self.entries.contains_key(path)
     }
 
-    /// Explicitly insert content (e.g. after a read_file that was not cached).
+    /// Explicitly insert content (e.g. after a `read_file` that was not cached).
     pub fn insert(&mut self, path: String, content: String) {
         let size = content.len();
 

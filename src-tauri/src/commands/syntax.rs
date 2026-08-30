@@ -212,6 +212,9 @@ pub fn syntax_tokenize(language: String, source: String) -> Result<Vec<SyntaxTok
     Ok(tokens)
 }
 
+// Not yet wired into `generate_handler!` — kept building against, allowed
+// dead until it's hooked up to the app.
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextMateLineTokens {
@@ -219,6 +222,7 @@ pub struct TextMateLineTokens {
     pub tokens: Vec<TextMateToken>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextMateToken {
@@ -227,7 +231,7 @@ pub struct TextMateToken {
     pub scopes: Vec<String>,
 }
 
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, dead_code)]
 #[tauri::command]
 pub fn textmate_tokenize_lines(
     grammar_json: String,

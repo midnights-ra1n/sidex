@@ -1,6 +1,6 @@
 //! Local agent server supervisor.
 //!
-//! SideX's agent loop, tools, MCP and memory all live in `sidex-server`. With
+//! `SideX`'s agent loop, tools, MCP and memory all live in `sidex-server`. With
 //! no account there is no hosted instance to talk to, so the app runs its own
 //! copy: a child process bound to loopback, started on launch and stopped when
 //! the app exits.
@@ -90,7 +90,10 @@ impl LocalServer {
     fn with_proc<T>(&self, f: impl FnOnce(&mut ServerProc) -> T) -> T {
         // A poisoned lock only means a previous holder panicked; the process
         // handle is still valid, so recover rather than propagate.
-        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         f(&mut guard)
     }
 
@@ -107,6 +110,7 @@ impl LocalServer {
     }
 
     /// WebSocket origin the workbench should connect to.
+    #[allow(dead_code)]
     pub fn ws_url(&self) -> String {
         format!("ws://127.0.0.1:{}", self.port())
     }
@@ -247,19 +251,15 @@ fn find_server_binary(app: &AppHandle) -> Option<PathBuf> {
     // there, but a launched .app does not).
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let cwd = std::env::current_dir().unwrap_or_default();
-    for candidate in [
+    [
         manifest_dir
             .join("../sidexai/sidex-server")
             .join(SERVER_BIN),
         cwd.join("sidexai/sidex-server").join(SERVER_BIN),
         cwd.join("../sidexai/sidex-server").join(SERVER_BIN),
-    ] {
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-
-    None
+    ]
+    .into_iter()
+    .find(|candidate| candidate.is_file())
 }
 
 /// Block until the server answers its health endpoint, or the timeout expires.
@@ -580,6 +580,7 @@ pub fn initialize(app: &AppHandle) {
 
 /// Restart the server so newly-saved provider credentials take effect.
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn server_restart(app: AppHandle) -> Result<ServerEndpoint, String> {
     let server = app
         .try_state::<Arc<LocalServer>>()
@@ -762,7 +763,7 @@ mod tests {
             assert!(
                 p.error.is_none(),
                 "a superseded attempt must not report its own failure"
-            )
+            );
         });
     }
 

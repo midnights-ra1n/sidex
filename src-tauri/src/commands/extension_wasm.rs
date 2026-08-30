@@ -1,3 +1,8 @@
+// Tauri commands are kept `async fn` for a consistent IPC surface even when a
+// given handler happens not to await internally. Several LSP-provider
+// handlers here aren't yet wired into `generate_handler!`.
+#![allow(clippy::unused_async, dead_code)]
+
 use crate::commands::extension_platform::ExtensionManifest;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

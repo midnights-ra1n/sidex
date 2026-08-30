@@ -61,7 +61,7 @@ impl From<sidex_db::ChatMessage> for ChatMessageInfo {
     }
 }
 
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, clippy::cast_possible_wrap)]
 #[tauri::command]
 pub fn session_create(
     state: State<'_, Arc<SidexDbState>>,
@@ -120,7 +120,12 @@ pub fn session_load(
         .map_err(|e| e.to_string())
 }
 
-#[allow(clippy::needless_pass_by_value)]
+// One field per IPC argument for a direct frontend call shape.
+#[allow(
+    clippy::needless_pass_by_value,
+    clippy::cast_possible_wrap,
+    clippy::too_many_arguments
+)]
 #[tauri::command]
 pub fn session_save_message(
     state: State<'_, Arc<SidexDbState>>,

@@ -1,3 +1,6 @@
+// Tauri commands take their deserialized IPC arguments by value.
+#![allow(clippy::needless_pass_by_value)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -106,6 +109,7 @@ impl OrchestrationStore {
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -233,6 +237,7 @@ pub async fn orch_add_tasks(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_lines)]
 pub async fn orch_spawn_task(
     app: AppHandle,
     state: State<'_, Arc<OrchestrationStore>>,
@@ -329,16 +334,14 @@ pub async fn orch_spawn_task(
         )
         .await;
 
-        let mut run = match run_arc_clone.lock() {
-            Ok(r) => r,
-            Err(_) => return,
+        let Ok(mut run) = run_arc_clone.lock() else {
+            return;
         };
 
         run.running.retain(|r| r.task_id != task_id_clone);
 
-        let task = match run.plan.tasks.iter_mut().find(|t| t.id == task_id_clone) {
-            Some(t) => t,
-            None => return,
+        let Some(task) = run.plan.tasks.iter_mut().find(|t| t.id == task_id_clone) else {
+            return;
         };
 
         match result {
@@ -377,6 +380,7 @@ pub async fn orch_spawn_task(
     Ok(run_id)
 }
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn run_agent_session(
     server_url: &str,
     system_prompt: &str,
@@ -390,7 +394,7 @@ async fn run_agent_session(
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-    let ws_url = format!("{}/v1/stream", server_url.replace("ws://", "ws://"));
+    let ws_url = format!("{server_url}/v1/stream");
     let (ws_stream, _) = connect_async(&ws_url)
         .await
         .map_err(|e| format!("WebSocket connect failed: {e}"))?;
@@ -485,7 +489,7 @@ async fn run_agent_session(
                         }
                     }
                     Some(Ok(Message::Close(_))) | None => break,
-                    _ => continue,
+                    _ => {}
                 }
             }
         }

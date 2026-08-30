@@ -22,13 +22,14 @@ const APP_NAME: &str = "SideX";
 pub fn sidex_config_dir() -> PathBuf {
     #[cfg(target_os = "linux")]
     {
-        let base = std::env::var("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
+        let base = std::env::var("XDG_CONFIG_HOME").map_or_else(
+            |_| {
                 dirs::home_dir()
                     .unwrap_or_else(|| PathBuf::from("."))
                     .join(".config")
-            });
+            },
+            PathBuf::from,
+        );
         base.join(APP_NAME)
     }
 
@@ -90,20 +91,21 @@ pub fn user_data_dir() -> PathBuf {
     sidex_config_dir().join("data")
 }
 
-/// Base directory for extensions on Linux uses XDG_DATA_HOME to keep large
+/// Base directory for extensions on Linux uses `XDG_DATA_HOME` to keep large
 /// extension binaries separate from config. On other platforms, uses the
 /// same directory as config.
 fn extensions_base_dir() -> PathBuf {
     #[cfg(target_os = "linux")]
     {
-        let base = std::env::var("XDG_DATA_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
+        let base = std::env::var("XDG_DATA_HOME").map_or_else(
+            |_| {
                 dirs::home_dir()
                     .unwrap_or_else(|| PathBuf::from("."))
                     .join(".local")
                     .join("share")
-            });
+            },
+            PathBuf::from,
+        );
         base.join(APP_NAME)
     }
 

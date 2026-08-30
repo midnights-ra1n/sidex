@@ -40,7 +40,7 @@ pub fn ext_api_get_commands(registry: State<'_, Arc<CommandRegistry>>) -> Vec<Ex
 
 /// Dispatch an extension-API call ("namespace/action") to the appropriate
 /// subsystem handler. This is the command the workbench-side
-/// SidexExtensionApiService invokes — without it the entire extension API
+/// `SidexExtensionApiService` invokes — without it the entire extension API
 /// surface was unreachable.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]

@@ -1,3 +1,8 @@
+// The workspace search+replace feature below (Ws* types, search_workspace*)
+// isn't yet wired into `generate_handler!` — kept building against, allowed
+// dead until it's hooked up to the app.
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

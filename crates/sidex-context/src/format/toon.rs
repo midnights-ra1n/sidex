@@ -482,6 +482,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cast_precision_loss)]
     fn test_token_savings_over_json() {
         #[derive(Serialize)]
         struct Hit {

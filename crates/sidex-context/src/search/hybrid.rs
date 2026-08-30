@@ -59,6 +59,7 @@ impl HybridSearcher {
         }
     }
 
+    #[allow(clippy::cast_precision_loss)]
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
         let retrieve_n = 50;
 

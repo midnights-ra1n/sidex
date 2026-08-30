@@ -1,3 +1,6 @@
+// Tauri commands take their deserialized IPC arguments by value.
+#![allow(clippy::needless_pass_by_value)]
+
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -17,15 +20,9 @@ fn global_sidex_config_dir() -> PathBuf {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HookConfig {
     pub hooks: Vec<Hook>,
-}
-
-impl Default for HookConfig {
-    fn default() -> Self {
-        Self { hooks: Vec::new() }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -394,7 +391,7 @@ fn detect_interpreter(path: &str) -> String {
         Some("rb") => "ruby".into(),
         Some("js") => "node".into(),
         Some("ts") => "npx".into(),
-        Some("sh") | Some("bash") => "bash".into(),
+        Some("sh" | "bash") => "bash".into(),
         Some("zsh") => "zsh".into(),
         _ => "sh".into(),
     }

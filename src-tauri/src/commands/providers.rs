@@ -1,6 +1,6 @@
 //! Provider credentials and local model discovery.
 //!
-//! SideX runs without an account. Every model request is made with credentials
+//! `SideX` runs without an account. Every model request is made with credentials
 //! the user already has, resolved from four sources in this precedence order:
 //!
 //!   1. `settings`     — a key the user typed into Settings → Models
@@ -21,7 +21,6 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -113,7 +112,7 @@ pub struct ProviderInfo {
     pub keyless: bool,
 }
 
-/// Every provider SideX knows how to talk to out of the box.
+/// Every provider `SideX` knows how to talk to out of the box.
 ///
 /// This is not a closed set — `providers_save` accepts any id with a custom
 /// base URL, which is how "some OpenAI-compatible thing I self-host" works.
@@ -396,7 +395,7 @@ pub struct ResolvedProvider {
     /// `api_key` for a console key, `oauth` for a token lifted from a CLI
     /// login. Only Anthropic changes its header scheme based on this.
     pub auth_mode: String,
-    /// ChatGPT account id from a Codex login. Required as `ChatGPT-Account-ID`
+    /// `ChatGPT` account id from a Codex login. Required as `ChatGPT-Account-ID`
     /// on the Codex Responses host; unused for every other provider.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
@@ -626,7 +625,7 @@ fn delete_provider(store: &SecretsStore, provider: &str) {
 /// Forget everything stored for a provider, including its CLI opt-in and its
 /// off switch.
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
 pub fn providers_delete(
     store: State<'_, Arc<SecretsStore>>,
     provider: String,
@@ -1103,7 +1102,7 @@ struct CodexTokens {
     /// A JWT; see `decode_jwt_claims` and `IdTokenClaims`. Only present for
     /// an OAuth (`ChatGPT`) login, never for a plain API key.
     id_token: Option<String>,
-    /// ChatGPT account UUID. Required by the Codex Responses host.
+    /// `ChatGPT` account UUID. Required by the Codex Responses host.
     account_id: Option<String>,
 }
 
@@ -1198,7 +1197,7 @@ fn jwt_exp_has_passed(exp_seconds: i64) -> bool {
 
 /// True when the Codex *access* token's JWT `exp` has passed. A token that
 /// is not a JWT, has no `exp`, or fails to decode is treated as not expired
-/// — same fail-open reasoning as `now_millis`. The id_token is never used
+/// — same fail-open reasoning as `now_millis`. The `id_token` is never used
 /// here: it is a display JWT and is not what `/responses` authenticates.
 fn codex_oauth_expired(access_token: Option<&str>) -> bool {
     access_token
@@ -1217,7 +1216,7 @@ pub struct CliCredential {
     pub account_id: Option<String>,
 }
 
-/// A ChatGPT login is not an OpenAI platform key. Keep a user-supplied
+/// A `ChatGPT` login is not an `OpenAI` platform key. Keep a user-supplied
 /// base URL (Azure, a proxy, …) but retarget the stock `api.openai.com`
 /// endpoint at the Codex host the official CLI uses.
 fn openai_oauth_base_url(provider: &str, auth_mode: &str, base_url: String) -> String {
@@ -1374,12 +1373,11 @@ fn provider_model_from_entry(provider: &str, entry: ModelEntry) -> ProviderModel
 /// about a second even when nothing is listening.
 #[tauri::command]
 pub async fn providers_detect_local() -> Vec<LocalServer> {
-    let client = match reqwest::Client::builder()
+    let Ok(client) = reqwest::Client::builder()
         .timeout(Duration::from_millis(600))
         .build()
-    {
-        Ok(c) => c,
-        Err(_) => return Vec::new(),
+    else {
+        return Vec::new();
     };
 
     let probes = LOCAL_PROVIDERS.iter().filter_map(|id| {
@@ -1454,7 +1452,7 @@ fn read_codex_models_cache_version() -> Option<String> {
     parse_codex_models_cache_version(&std::fs::read_to_string(path).ok()?)
 }
 
-/// Version header ChatGPT uses to gate models such as gpt-5.6-terra.
+/// Version header `ChatGPT` uses to gate models such as gpt-5.6-terra.
 fn codex_client_version() -> String {
     if let Ok(v) = std::env::var("SIDEX_CODEX_CLIENT_VERSION") {
         let v = v.trim();

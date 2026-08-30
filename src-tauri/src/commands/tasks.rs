@@ -37,7 +37,10 @@ impl TaskProcessStore {
     /// Kill every running task process. Called on app exit so spawned build
     /// tasks don't outlive the editor.
     pub fn kill_all(&self) {
-        let mut tasks = self.tasks.lock().unwrap_or_else(|e| e.into_inner());
+        let mut tasks = self
+            .tasks
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         for (_, mut handle) in tasks.drain() {
             let _ = handle.child.kill();
             let _ = handle.child.wait();

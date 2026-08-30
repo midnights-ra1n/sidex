@@ -12,14 +12,20 @@ const MAX_CHUNKS: usize = 50_000;
 /// In-memory BM25 index for keyword search over chunks.
 #[derive(Debug)]
 pub struct Bm25Index {
-    /// chunk_id → Chunk reference index
+    /// `chunk_id` → Chunk reference index
     chunks: Vec<Chunk>,
-    /// term → list of (chunk_index, term_frequency)
+    /// term → list of (`chunk_index`, `term_frequency`)
     inverted: HashMap<String, Vec<(usize, f64)>>,
     /// Average document length (in tokens)
     avg_dl: f64,
     /// Number of documents
     n: usize,
+}
+
+impl Default for Bm25Index {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Bm25Index {
@@ -32,6 +38,7 @@ impl Bm25Index {
         }
     }
 
+    #[allow(clippy::cast_precision_loss)]
     pub fn build(chunks: Vec<Chunk>) -> Self {
         let mut chunks = chunks;
         if chunks.len() > MAX_CHUNKS {
@@ -83,6 +90,7 @@ impl Bm25Index {
 
     /// Search the index with a query string, returning (chunk, score) pairs
     /// sorted by relevance (highest first).
+    #[allow(clippy::cast_precision_loss)]
     pub fn search(&self, query: &str, limit: usize) -> Vec<(&Chunk, f64)> {
         if self.n == 0 {
             return vec![];
@@ -140,6 +148,7 @@ impl Bm25Index {
     }
 
     /// Add new chunks incrementally without a full index rebuild.
+    #[allow(clippy::cast_precision_loss)]
     pub fn add_chunks(&mut self, new_chunks: Vec<Chunk>) {
         if new_chunks.is_empty() {
             return;

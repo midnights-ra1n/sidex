@@ -564,7 +564,7 @@ fn main() {
 
     #[test]
     fn test_python_chunks() {
-        let source = r#"
+        let source = r"
 import os
 from pathlib import Path
 
@@ -578,7 +578,7 @@ class Calculator:
 
 def standalone_function(x, y):
     return x + y
-"#;
+";
         let chunks = chunk_source(source, "python");
 
         let kinds: Vec<&ChunkKind> = chunks.iter().map(|c| &c.kind).collect();
@@ -603,7 +603,7 @@ def standalone_function(x, y):
 
     #[test]
     fn test_javascript_chunks() {
-        let source = r#"
+        let source = r"
 import { foo } from './foo';
 
 class Animal {
@@ -621,7 +621,7 @@ function greet(name) {
 }
 
 const PI = 3.14159;
-"#;
+";
         let chunks = chunk_source(source, "javascript");
 
         let kinds: Vec<&ChunkKind> = chunks.iter().map(|c| &c.kind).collect();

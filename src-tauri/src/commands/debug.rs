@@ -27,7 +27,10 @@ impl DebugAdapterStore {
 
     /// Kill every running debug adapter. Called on app exit.
     pub fn kill_all(&self) {
-        let mut adapters = self.adapters.lock().unwrap_or_else(|e| e.into_inner());
+        let mut adapters = self
+            .adapters
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         for (_, mut handle) in adapters.drain() {
             let _ = handle.child.kill();
             let _ = handle.child.wait();

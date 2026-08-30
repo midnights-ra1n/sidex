@@ -89,6 +89,7 @@ impl FileWatcher {
         events
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn debounce_loop(
         raw_rx: mpsc::Receiver<notify::Event>,
         tx: mpsc::Sender<IndexEvent>,
@@ -118,10 +119,9 @@ impl FileWatcher {
 
                         let index_event = match ev.kind {
                             EventKind::Create(_) => IndexEvent::FileCreated(rel_str),
-                            EventKind::Modify(event::ModifyKind::Data(_))
-                            | EventKind::Modify(event::ModifyKind::Any) => {
-                                IndexEvent::FileChanged(rel_str)
-                            }
+                            EventKind::Modify(
+                                event::ModifyKind::Data(_) | event::ModifyKind::Any,
+                            ) => IndexEvent::FileChanged(rel_str),
                             EventKind::Remove(_) => IndexEvent::FileDeleted(rel_str),
                             _ => continue,
                         };

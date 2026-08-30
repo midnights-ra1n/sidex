@@ -58,6 +58,7 @@ impl SqliteChunkStore {
     }
 
     /// Return the total number of stored chunks.
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     pub fn count(&self) -> Result<usize> {
         let conn = self.conn.lock().unwrap();
         let n: i64 = conn
@@ -94,6 +95,7 @@ impl SqliteChunkStore {
         Self::collect_rows(&mut stmt, params![kind_str])
     }
 
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     fn collect_rows(
         stmt: &mut rusqlite::Statement<'_>,
         params: impl rusqlite::Params,
@@ -125,6 +127,7 @@ impl SqliteChunkStore {
 }
 
 impl ChunkStore for SqliteChunkStore {
+    #[allow(clippy::cast_possible_wrap)]
     fn upsert(&self, chunks: &[Chunk]) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let tx = conn.unchecked_transaction().context("begin transaction")?;
@@ -233,10 +236,10 @@ mod tests {
             kind,
             name: Some(name.to_string()),
             language: "rust".to_string(),
-            content: format!("fn {}() {{}}", name),
-            content_hash: format!("hash_{}", id),
+            content: format!("fn {name}() {{}}"),
+            content_hash: format!("hash_{id}"),
             parent_name: None,
-            signature: Some(format!("fn {}()", name)),
+            signature: Some(format!("fn {name}()")),
         }
     }
 

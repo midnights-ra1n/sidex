@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::Mutex;
 use tauri::State;
@@ -149,7 +150,10 @@ impl CheckpointStore {
     pub fn track_modified(&self, path: &str) {
         // Decide whether a snapshot is even needed (cheap lock, no I/O).
         let needs_snapshot = {
-            let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+            let entries = self
+                .entries
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             match entries.last() {
                 Some(last) => {
                     !last.files.contains_key(path) && !last.created.contains(&path.to_string())
@@ -173,12 +177,18 @@ impl CheckpointStore {
         };
 
         {
-            let mut dirty = self.dirty_files.lock().unwrap_or_else(|e| e.into_inner());
+            let mut dirty = self
+                .dirty_files
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             dirty.insert(path.to_string());
         }
 
         if let Some(content) = snapshot {
-            let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+            let mut entries = self
+                .entries
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(last) = entries.last_mut() {
                 // Re-check: another thread may have snapshotted meanwhile.
                 if !last.files.contains_key(path) && !last.created.contains(&path.to_string()) {
@@ -196,6 +206,7 @@ impl CheckpointStore {
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -206,13 +217,13 @@ fn now_ms() -> u64 {
 fn detect_language(path: &str) -> &str {
     match Path::new(path).extension().and_then(|e| e.to_str()) {
         Some("rs") => "rust",
-        Some("ts") | Some("tsx") => "typescript",
-        Some("js") | Some("jsx") => "javascript",
+        Some("ts" | "tsx") => "typescript",
+        Some("js" | "jsx") => "javascript",
         Some("py") => "python",
         Some("go") => "go",
         Some("java") => "java",
-        Some("c") | Some("h") => "c",
-        Some("cpp") | Some("cc") | Some("hpp") => "cpp",
+        Some("c" | "h") => "c",
+        Some("cpp" | "cc" | "hpp") => "cpp",
         _ => "unknown",
     }
 }
@@ -230,7 +241,7 @@ pub async fn semantic_edit(
     let lang = language.unwrap_or_else(|| detect_language(&path).to_string());
     let content = tokio::fs::read_to_string(&path)
         .await
-        .map_err(|e| format!("Cannot read {}: {}", path, e))?;
+        .map_err(|e| format!("Cannot read {path}: {e}"))?;
 
     let scope_filter = scope.unwrap_or_default();
     let target_section = if scope_filter.is_empty() {
@@ -254,7 +265,7 @@ pub async fn semantic_edit(
     checkpoint_state.track_modified(&path);
     tokio::fs::write(&path, &new_content)
         .await
-        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+        .map_err(|e| format!("Failed to write {path}: {e}"))?;
 
     Ok(SemanticEditResponse {
         success: true,
@@ -271,7 +282,7 @@ pub async fn multi_edit_file(
 ) -> Result<MultiEditResponse, String> {
     let mut content = tokio::fs::read_to_string(&path)
         .await
-        .map_err(|e| format!("Cannot read {}: {}", path, e))?;
+        .map_err(|e| format!("Cannot read {path}: {e}"))?;
 
     let original = content.clone();
     let mut applied = 0;
@@ -298,7 +309,7 @@ pub async fn multi_edit_file(
         checkpoint_state.track_modified(&path);
         tokio::fs::write(&path, &content)
             .await
-            .map_err(|e| format!("Failed to write: {}", e))?;
+            .map_err(|e| format!("Failed to write: {e}"))?;
     } else if applied > 0 {
         // Partial success: roll back, only apply successful ones atomically
         let mut retry_content = original;
@@ -310,7 +321,7 @@ pub async fn multi_edit_file(
         checkpoint_state.track_modified(&path);
         tokio::fs::write(&path, &retry_content)
             .await
-            .map_err(|e| format!("Failed to write: {}", e))?;
+            .map_err(|e| format!("Failed to write: {e}"))?;
     }
 
     Ok(MultiEditResponse {
@@ -334,13 +345,12 @@ pub async fn understand_symbol(
     let def_output = tokio::process::Command::new("rg")
         .args(["--max-count=1", "--line-number", "--no-heading", "-e"])
         .arg(format!(
-            r"(fn|function|class|struct|type|interface|def|const|let|var)\s+{}\b",
-            symbol
+            r"(fn|function|class|struct|type|interface|def|const|let|var)\s+{symbol}\b"
         ))
         .arg(&search_path)
         .output()
         .await
-        .map_err(|e| format!("ripgrep failed: {}", e))?;
+        .map_err(|e| format!("ripgrep failed: {e}"))?;
 
     let def_str = String::from_utf8_lossy(&def_output.stdout);
     let definition = parse_first_match(&def_str);
@@ -351,11 +361,11 @@ pub async fn understand_symbol(
     if include_callers {
         let ref_output = tokio::process::Command::new("rg")
             .args(["--max-count=20", "--line-number", "--no-heading", "-e"])
-            .arg(format!(r"\b{}\b", symbol))
+            .arg(format!(r"\b{symbol}\b"))
             .arg(&search_path)
             .output()
             .await
-            .map_err(|e| format!("ripgrep failed: {}", e))?;
+            .map_err(|e| format!("ripgrep failed: {e}"))?;
 
         let ref_str = String::from_utf8_lossy(&ref_output.stdout);
         for line in ref_str.lines() {
@@ -398,7 +408,7 @@ pub async fn diff_preview(
 ) -> Result<DiffPreviewResponse, String> {
     let content = tokio::fs::read_to_string(&path)
         .await
-        .map_err(|e| format!("Cannot read {}: {}", path, e))?;
+        .map_err(|e| format!("Cannot read {path}: {e}"))?;
 
     if !content.contains(&old_str) {
         return Ok(DiffPreviewResponse {
@@ -439,7 +449,7 @@ pub async fn batch_read_files(
                     .join("\n");
                 let was_truncated = content.lines().count() > max_lines;
                 let final_content = if was_truncated {
-                    format!("{}\n[... truncated at {} lines]", truncated, max_lines)
+                    format!("{truncated}\n[... truncated at {max_lines} lines]")
                 } else {
                     truncated
                 };
@@ -462,6 +472,7 @@ pub async fn batch_read_files(
     Ok(BatchReadResponse { results })
 }
 
+#[allow(clippy::cast_precision_loss)]
 #[tauri::command]
 pub async fn context_search(
     query: String,
@@ -489,7 +500,7 @@ pub async fn context_search(
         .arg(&search_path)
         .output()
         .await
-        .map_err(|e| format!("Search failed: {}", e))?;
+        .map_err(|e| format!("Search failed: {e}"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let total_candidates = stdout.lines().count();
@@ -550,7 +561,10 @@ pub async fn checkpoint_create(
     // Files modified after this checkpoint are captured lazily by
     // track_modified's copy-on-write.
     let dirty: Vec<String> = {
-        let mut d = state.dirty_files.lock().unwrap_or_else(|e| e.into_inner());
+        let mut d = state
+            .dirty_files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let taken: Vec<String> = d.iter().cloned().collect();
         d.clear();
         taken
@@ -577,7 +591,10 @@ pub async fn checkpoint_create(
         created: Vec::new(),
     };
 
-    let mut entries = state.entries.lock().unwrap_or_else(|e| e.into_inner());
+    let mut entries = state
+        .entries
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     entries.push(entry);
     // Bound memory: drop the oldest checkpoints beyond the retention cap.
     if entries.len() > MAX_CHECKPOINT_ENTRIES {
@@ -598,7 +615,10 @@ pub async fn checkpoint_rollback(
     label: Option<String>,
 ) -> Result<RollbackResponse, String> {
     let entry = {
-        let entries = state.entries.lock().unwrap_or_else(|e| e.into_inner());
+        let entries = state
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let found = if let Some(lbl) = &label {
             entries.iter().rev().find(|e| e.label == *lbl).cloned()
         } else {
@@ -622,7 +642,10 @@ pub async fn checkpoint_rollback(
 
     // Remove checkpoints up to and including the one we rolled back to
     {
-        let mut entries = state.entries.lock().unwrap_or_else(|e| e.into_inner());
+        let mut entries = state
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(idx) = entries.iter().position(|e| e.label == entry.label) {
             entries.truncate(idx);
         }
@@ -642,7 +665,8 @@ pub async fn analyze_error(
     exit_code: i32,
 ) -> Result<ErrorAnalysis, String> {
     let diagnosis = if output.contains("ModuleNotFoundError") || output.contains("ImportError") {
-        format!("Missing import/module. A required dependency is not installed or the import path is wrong.")
+        "Missing import/module. A required dependency is not installed or the import path is wrong."
+            .to_string()
     } else if output.contains("SyntaxError") {
         "Syntax error in the code. Check for unclosed brackets, missing colons, or invalid tokens."
             .into()
@@ -655,7 +679,7 @@ pub async fn analyze_error(
     } else if output.contains("No such file") || output.contains("ENOENT") {
         "File not found. A referenced file or directory does not exist.".into()
     } else {
-        format!("Command '{}' exited with code {}.", command, exit_code)
+        format!("Command '{command}' exited with code {exit_code}.")
     };
 
     let suggested_fix = if output.contains("ModuleNotFoundError") {
@@ -664,7 +688,7 @@ pub async fn analyze_error(
             .find(|l| l.contains("ModuleNotFoundError"))
             .and_then(|l| l.split('\'').nth(1))
             .unwrap_or("unknown");
-        Some(format!("pip install {}", module))
+        Some(format!("pip install {module}"))
     } else {
         None
     };
@@ -685,10 +709,10 @@ fn find_scope_section(content: &str, scope: &str, _lang: &str) -> Option<String>
     let (kind, name) = (parts[0], parts[1]);
 
     let pattern = match kind {
-        "function" | "fn" => format!(r"(pub\s+)?(async\s+)?fn\s+{}\b", name),
-        "class" | "struct" => format!(r"(pub\s+)?(struct|class|interface)\s+{}\b", name),
-        "method" | "def" => format!(r"(pub\s+)?(async\s+)?(fn|def|function)\s+{}\b", name),
-        _ => format!(r"\b{}\b", name),
+        "function" | "fn" => format!(r"(pub\s+)?(async\s+)?fn\s+{name}\b"),
+        "class" | "struct" => format!(r"(pub\s+)?(struct|class|interface)\s+{name}\b"),
+        "method" | "def" => format!(r"(pub\s+)?(async\s+)?(fn|def|function)\s+{name}\b"),
+        _ => format!(r"\b{name}\b"),
     };
 
     let re = regex::Regex::new(&pattern).ok()?;
@@ -722,7 +746,7 @@ fn find_scope_section(content: &str, scope: &str, _lang: &str) -> Option<String>
     Some(content[start..end].to_string())
 }
 
-fn apply_structural_edit(section: &str, instruction: &str, _lang: &str) -> String {
+fn apply_structural_edit(section: &str, instruction: &str, lang: &str) -> String {
     let instruction_lower = instruction.to_lowercase();
 
     if instruction_lower.contains("add parameter") || instruction_lower.contains("add param") {
@@ -732,12 +756,12 @@ fn apply_structural_edit(section: &str, instruction: &str, _lang: &str) -> Strin
     }
 
     if instruction_lower.contains("wrap") && instruction_lower.contains("try") {
-        return wrap_in_try_catch(section, _lang);
+        return wrap_in_try_catch(section, lang);
     }
 
     if instruction_lower.contains("add import") || instruction_lower.contains("add use") {
         if let Some(import_line) = extract_quoted(instruction) {
-            return format!("{}\n{}", import_line, section);
+            return format!("{import_line}\n{section}");
         }
     }
 
@@ -752,7 +776,7 @@ fn add_parameter_to_function(section: &str, param: &str) -> String {
             let new_params = if existing_params.is_empty() {
                 param.to_string()
             } else {
-                format!("{}, {}", existing_params, param)
+                format!("{existing_params}, {param}")
             };
             return format!(
                 "{}({}){}",
@@ -766,16 +790,12 @@ fn add_parameter_to_function(section: &str, param: &str) -> String {
 }
 
 fn wrap_in_try_catch(section: &str, lang: &str) -> String {
-    let indent = section
-        .lines()
-        .find(|l| l.contains('{'))
-        .map(|l| {
-            let trimmed = l.trim_start();
-            &l[..l.len() - trimmed.len()]
-        })
-        .unwrap_or("");
+    let indent = section.lines().find(|l| l.contains('{')).map_or("", |l| {
+        let trimmed = l.trim_start();
+        &l[..l.len() - trimmed.len()]
+    });
 
-    let body_indent = format!("{}    ", indent);
+    let body_indent = format!("{indent}    ");
 
     match lang {
         "rust" => {
@@ -788,7 +808,7 @@ fn wrap_in_try_catch(section: &str, lang: &str) -> String {
                 return section.to_string();
             }
             let header = lines[0];
-            let body: Vec<String> = lines[1..].iter().map(|l| format!("    {}", l)).collect();
+            let body: Vec<String> = lines[1..].iter().map(|l| format!("    {l}")).collect();
             format!(
                 "{}\n{}try:\n{}\n{}except Exception as e:\n{}    raise",
                 header,
@@ -804,7 +824,7 @@ fn wrap_in_try_catch(section: &str, lang: &str) -> String {
                 return section.to_string();
             }
             let header = lines[0];
-            let body: Vec<String> = lines[1..].iter().map(|l| format!("    {}", l)).collect();
+            let body: Vec<String> = lines[1..].iter().map(|l| format!("    {l}")).collect();
             format!(
                 "{}\n{}try {{\n{}\n{}}} catch (e) {{\n{}throw e;\n{}}}",
                 header,
@@ -835,7 +855,7 @@ fn truncate_str(s: &str, max: usize) -> String {
 fn generate_unified_diff(old: &str, new: &str, path: &str) -> String {
     let old_lines: Vec<&str> = old.lines().collect();
     let new_lines: Vec<&str> = new.lines().collect();
-    let mut diff = format!("--- a/{}\n+++ b/{}\n", path, path);
+    let mut diff = format!("--- a/{path}\n+++ b/{path}\n");
 
     let mut i = 0;
     let mut j = 0;
@@ -845,15 +865,15 @@ fn generate_unified_diff(old: &str, new: &str, path: &str) -> String {
             j += 1;
         } else {
             let ctx_start = i.saturating_sub(2);
-            for ci in ctx_start..i {
-                diff.push_str(&format!(" {}\n", old_lines[ci]));
+            for line in &old_lines[ctx_start..i] {
+                let _ = writeln!(diff, " {line}");
             }
             while i < old_lines.len() && (j >= new_lines.len() || old_lines[i] != new_lines[j]) {
-                diff.push_str(&format!("-{}\n", old_lines[i]));
+                let _ = writeln!(diff, "-{}", old_lines[i]);
                 i += 1;
             }
             while j < new_lines.len() && (i >= old_lines.len() || old_lines[i] != new_lines[j]) {
-                diff.push_str(&format!("+{}\n", new_lines[j]));
+                let _ = writeln!(diff, "+{}", new_lines[j]);
                 j += 1;
             }
         }
@@ -900,9 +920,9 @@ async fn extract_docstring(file: &str, line: usize) -> Option<String> {
     while i > 0 {
         let trimmed = lines[i].trim();
         if trimmed.starts_with("///")
-            || trimmed.starts_with("#")
+            || trimmed.starts_with('#')
             || trimmed.starts_with("/**")
-            || trimmed.starts_with("*")
+            || trimmed.starts_with('*')
             || trimmed.starts_with("\"\"\"")
         {
             doc_lines.push(

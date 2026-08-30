@@ -37,7 +37,7 @@ pub struct Edge {
 #[derive(Debug, Default)]
 pub struct CodeGraph {
     pub nodes: HashMap<String, GraphNode>,
-    /// Reverse index: target_chunk_id → [(source_chunk_id, EdgeKind)]
+    /// Reverse index: `target_chunk_id` → [(`source_chunk_id`, `EdgeKind`)]
     pub reverse: HashMap<String, Vec<(String, EdgeKind)>>,
 }
 

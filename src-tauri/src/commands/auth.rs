@@ -1,6 +1,6 @@
 //! Local account.
 //!
-//! SideX has no sign-in. There is no identity provider, no token exchange and
+//! `SideX` has no sign-in. There is no identity provider, no token exchange and
 //! no remote profile — the "account" is just the person at the keyboard, and
 //! every model call is made with credentials they supplied themselves (see
 //! `commands::providers`).
@@ -65,12 +65,12 @@ fn computer_display_name() -> String {
     }
     #[cfg(unix)]
     if let Some(name) = env_nonempty("HOSTNAME") {
-        return strip_local_suffix(name);
+        return strip_local_suffix(&name);
     }
     hostname::get()
         .ok()
         .map(|h| h.to_string_lossy().into_owned())
-        .map(strip_local_suffix)
+        .map(|s| strip_local_suffix(&s))
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "You".to_string())
 }
@@ -82,9 +82,9 @@ fn env_nonempty(key: &str) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-fn strip_local_suffix(name: String) -> String {
+fn strip_local_suffix(name: &str) -> String {
     name.strip_suffix(".local")
-        .unwrap_or(name.as_str())
+        .unwrap_or(name)
         .trim()
         .to_string()
 }
@@ -144,6 +144,9 @@ impl AuthState {
 // ---------------------------------------------------------------------------
 
 /// Always returns the local session.
+// `Result` is kept for a stable Tauri IPC error channel even though this
+// particular command never actually fails.
+#[allow(clippy::unnecessary_wraps)]
 #[tauri::command]
 pub fn auth_get_session() -> Result<Option<AuthSession>, String> {
     Ok(Some(AuthSession::local()))
@@ -242,12 +245,11 @@ pub async fn auth_get_usage(
     }
 
     let url = format!("{}/v1/usage/summary", server.http_url());
-    let client = match reqwest::Client::builder()
+    let Ok(client) = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(20))
         .build()
-    {
-        Ok(c) => c,
-        Err(_) => return Ok(empty),
+    else {
+        return Ok(empty);
     };
 
     match client.get(&url).send().await {
@@ -286,7 +288,7 @@ mod tests {
 
     #[test]
     fn strip_local_suffix_drops_mdns_tail() {
-        assert_eq!(strip_local_suffix("Office-PC.local".into()), "Office-PC");
-        assert_eq!(strip_local_suffix("devbox".into()), "devbox");
+        assert_eq!(strip_local_suffix("Office-PC.local"), "Office-PC");
+        assert_eq!(strip_local_suffix("devbox"), "devbox");
     }
 }

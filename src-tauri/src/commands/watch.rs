@@ -117,7 +117,7 @@ struct WatchSession {
 /// Stops a debounce worker regardless of which execution mode it runs in:
 /// a tokio task (abortable) or a dedicated fallback thread (signaled via
 /// channel). The previous fallback leaked an entire tokio runtime per
-/// watch_start (`std::mem::forget`) just to fake an AbortHandle.
+/// `watch_start` (`std::mem::forget`) just to fake an `AbortHandle`.
 pub enum DebounceStopper {
     Task(AbortHandle),
     Channel(UnboundedSender<()>),

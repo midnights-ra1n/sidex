@@ -6,6 +6,10 @@
 //! - Backpressure handling to slow down processes when frontend can't keep up
 //! - Multiple shell support (bash, zsh, powershell, cmd, fish)
 //! - Process tree management for proper cleanup
+//!
+//! Not yet wired into `generate_handler!` — kept building against, allowed
+//! dead until it's hooked up to the app.
+#![allow(dead_code)]
 
 use crossbeam::channel::{bounded, Receiver, Sender};
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};

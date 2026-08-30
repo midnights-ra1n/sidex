@@ -13,6 +13,9 @@ const MAX_VALUE_LENGTH: usize = 1_048_576;
 /// `SQLite` `LIKE` is case-sensitive for ASCII by default; storage scopes use
 /// distinct literal prefixes (e.g. `app/`, `profile:`) so cross-scope leakage
 /// is not expected. Example: `escape_like_prefix("a_b")` → `a\_b%`.
+// Only used by `list_by_prefix`, backing `storage_list` below — not yet
+// wired into `generate_handler!`, allowed dead until it's hooked up.
+#[allow(dead_code)]
 fn escape_like_prefix(prefix: &str) -> String {
     let mut pattern = String::with_capacity(prefix.len() + 1);
     for ch in prefix.chars() {
@@ -58,6 +61,7 @@ impl StorageDb {
         Ok(stmt.query_row([key], |row| row.get::<_, String>(0)).ok())
     }
 
+    #[allow(dead_code)]
     pub fn list_by_prefix(&self, prefix: &str) -> Result<Vec<(String, String)>, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let pattern = escape_like_prefix(prefix);
@@ -153,7 +157,7 @@ pub fn storage_set(
     Ok(())
 }
 
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, dead_code)]
 #[tauri::command]
 pub fn storage_list(
     state: State<'_, Arc<StorageDb>>,

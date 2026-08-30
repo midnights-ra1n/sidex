@@ -135,7 +135,9 @@ async fn read_body_limited(response: reqwest::Response) -> Result<Vec<u8>, Strin
     Ok(bytes.to_vec())
 }
 
-#[allow(clippy::needless_pass_by_value)]
+// Not yet wired into `generate_handler!` — kept building against, allowed
+// dead until they're hooked up to the app.
+#[allow(clippy::needless_pass_by_value, dead_code)]
 #[tauri::command]
 pub async fn fetch_url(url: String) -> Result<Vec<u8>, String> {
     let parsed = validate_url(&url)?;
@@ -148,7 +150,7 @@ pub async fn fetch_url(url: String) -> Result<Vec<u8>, String> {
     read_body_limited(response).await
 }
 
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, dead_code)]
 #[tauri::command]
 pub async fn fetch_url_text(url: String) -> Result<String, String> {
     let parsed = validate_url(&url)?;

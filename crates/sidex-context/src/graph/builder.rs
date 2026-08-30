@@ -5,7 +5,7 @@ use crate::chunker::{Chunk, ChunkKind};
 /// Build a `CodeGraph` from parsed chunks.
 ///
 /// Phase 1: every chunk becomes a node.
-/// Phase 2: build a name→chunk_id lookup.
+/// Phase 2: build a `name→chunk_id` lookup.
 /// Phase 3: infer edges (Contains, Imports, Calls) from chunk metadata and content.
 pub fn build_graph(chunks: &[Chunk]) -> CodeGraph {
     let mut graph = CodeGraph::new();
@@ -87,7 +87,7 @@ fn find_import_edges(
 ///
 /// Instead of checking every known name against the content (O(names * content)),
 /// we scan the content once to extract identifiers followed by `(`, then do
-/// HashMap lookups (O(content + matches)).
+/// `HashMap` lookups (O(content + matches)).
 fn find_call_edges(
     chunk: &Chunk,
     name_lookup: &HashMap<String, Vec<String>>,
@@ -268,8 +268,7 @@ mod tests {
             .collect();
         assert!(
             call_targets.contains(&"c_compute"),
-            "main should call compute, got: {:?}",
-            call_targets
+            "main should call compute, got: {call_targets:?}"
         );
     }
 
