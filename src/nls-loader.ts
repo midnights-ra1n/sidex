@@ -23,7 +23,6 @@ const sidexTranslations: Record<string, Translations> = {
 		remoteExplorerViewIcon: '远程资源管理器视图图标。',
 		'sidex.remote.refresh': '刷新远程资源管理器',
 		'sidex.remote.openExplorer': '远程资源管理器',
-		'remote.signInMicrosoft': '使用 Microsoft 登录',
 		'remote.signInGitHub': '使用 GitHub 登录',
 		'remote.ssh.noHosts': '未在 ~/.ssh/config 中找到 SSH 目标',
 		'remote.ssh.empty': '~/.ssh/config 中没有 SSH 目标 — 在下方添加',

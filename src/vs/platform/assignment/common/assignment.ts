@@ -5,7 +5,11 @@
 
 import { Event } from '../../../base/common/event.js';
 import * as platform from '../../../base/common/platform.js';
-import type { IExperimentationFilterProvider } from 'tas-client';
+
+export interface IExperimentationFilterProvider {
+	getFilterValue(filter: string): string | null;
+	getFilters(): Map<string, unknown>;
+}
 
 export const ASSIGNMENT_STORAGE_KEY = 'VSCode.ABExp.FeatureData';
 export const ASSIGNMENT_REFETCH_INTERVAL = 60 * 60 * 1000; // 1 hour

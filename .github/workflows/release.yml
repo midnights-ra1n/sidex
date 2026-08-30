@@ -20,21 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            rust_targets: aarch64-apple-darwin
-            artifact_name: macos-arm64
-
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            rust_targets: x86_64-apple-darwin
-            artifact_name: macos-x64
-
-          - platform: macos-latest
-            target: universal-apple-darwin
-            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
-            artifact_name: macos-universal
-
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             rust_targets: x86_64-pc-windows-msvc
@@ -76,33 +61,12 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
-            libfuse2
+            libfuse2 \
+            rpm \
+            gnupg
 
       - name: Install frontend dependencies
         run: npm ci
-
-      - name: Import Apple signing certificate
-        if: runner.os == 'macOS' && !contains(matrix.platform, 'self-hosted')
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -lut 21600 build.keychain
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-          security list-keychain -d user -s build.keychain login.keychain
-          rm certificate.p12
-
-      - name: Install create-dmg
-        if: runner.os == 'macOS'
-        run: |
-          brew install create-dmg
-          sudo ln -sf "$(which create-dmg)" /usr/local/bin/create-dmg
 
       - name: Setup built-in extensions
         shell: bash
@@ -113,33 +77,12 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=12288"
         run: npm run build
 
-      - name: Unlock keychain before signing
-        if: runner.os == 'macOS'
-        env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-
       - name: Build Tauri app
         timeout-minutes: 40
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --target ${{ matrix.target }} --config src-tauri/tauri.release.conf.json
-
-      - name: Collect macOS artifacts
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          mkdir -p dist-artifacts
-          find target \( \
-            -name "*.dmg" \
-            -o -name "*.app.tar.gz" \
-            -o -name "*.app.tar.gz.sig" \
-          \) -exec cp {} dist-artifacts/ \; 2>/dev/null || true
-          ls -la dist-artifacts/
 
       - name: Collect Windows artifacts
         if: runner.os == 'Windows'
@@ -160,12 +103,36 @@ jobs:
           mkdir -p dist-artifacts
           find target \( \
             -name "*.deb" \
-            -name "*.rpm" \
+            -o -name "*.rpm" \
             -o -name "*.AppImage" \
             -o -name "*.AppImage.tar.gz" \
             -o -name "*.AppImage.tar.gz.sig" \
           \) -exec cp {} dist-artifacts/ \; 2>/dev/null || true
           ls -la dist-artifacts/
+
+      - name: Sign RPM package (GPG)
+        if: runner.os == 'Linux' && secrets.RPM_GPG_PRIVATE_KEY != ''
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+          RPM_GPG_PASSPHRASE: ${{ secrets.RPM_GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          echo "$RPM_GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
+          KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/ {print $5; exit}')
+
+          cat > ~/.rpmmacros <<EOF
+          %_gpg_name ${KEY_ID}
+          %_signature gpg
+          %__gpg_sign_cmd %{__gpg} gpg --batch --yes --no-armor --pinentry-mode loopback --passphrase-fd 3 --no-secmem-warning -u "%{_gpg_name}" -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}
+          EOF
+
+          shopt -s nullglob
+          for rpm in dist-artifacts/*.rpm; do
+            rpm --addsign "$rpm" 3<<< "$RPM_GPG_PASSPHRASE"
+          done
+
+          gpg --armor --export "${KEY_ID}" > dist-artifacts/RPM-GPG-KEY-sidex.asc
 
       - name: Sign Windows installers (Azure Trusted Signing)
         if: runner.os == 'Windows'
@@ -242,9 +209,6 @@ jobs:
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           BASE_URL="https://cdn.siden.ai/releases/sidex/latest"
 
-          MACOS_SIG=$(cat all-artifacts/*.app.tar.gz.sig 2>/dev/null | head -1 || echo "")
-          MACOS_FILE=$(ls all-artifacts/*.app.tar.gz 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "")
-
           WIN_SIG=$(cat all-artifacts/*x64-setup.exe.zip.sig 2>/dev/null | head -1 || echo "")
           WIN_FILE=$(ls all-artifacts/*x64-setup.exe.zip 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "")
 
@@ -257,8 +221,6 @@ jobs:
             "notes": "See the full changelog at https://github.com/${{ github.repository }}/releases/tag/v${VERSION}",
             "pub_date": "${DATE}",
             "platforms": {
-              "darwin-aarch64": { "signature": "${MACOS_SIG}", "url": "${BASE_URL}/${MACOS_FILE}" },
-              "darwin-x86_64": { "signature": "${MACOS_SIG}", "url": "${BASE_URL}/${MACOS_FILE}" },
               "windows-x86_64": { "signature": "${WIN_SIG}", "url": "${BASE_URL}/${WIN_FILE}" },
               "linux-x86_64": { "signature": "${LINUX_SIG}", "url": "${BASE_URL}/${LINUX_FILE}" }
             }

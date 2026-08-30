@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { IExperimentationFilterProvider } from 'tas-client';
+import type { IExperimentationFilterProvider } from '../../../../platform/assignment/common/assignment.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IDefaultAccountService } from '../../accounts/browser/nullDefaultAccount.js';

@@ -223,7 +223,7 @@ registerAction2(
 				{
 					label: '$(remote) ' + localize('remote.pick.connectToTunnel', 'Connect to Tunnel…'),
 					description: localize('remote.pick.tunnelsProvider', 'Remote-Tunnels'),
-					action: () => commandService.executeCommand('sidex.remote.signInTunnel', 'github')
+					action: () => commandService.executeCommand('sidex.remote.signInTunnel')
 				},
 				{
 					label: '$(terminal-cmd) ' + localize('remote.pick.connectToHost', 'Connect to Host…'),
@@ -311,15 +311,10 @@ registerAction2(
 			});
 		}
 
-		async run(accessor: ServicesAccessor, provider: 'microsoft' | 'github'): Promise<void> {
+		async run(accessor: ServicesAccessor): Promise<void> {
 			const opener = accessor.get(IOpenerService);
 			const notifications = accessor.get(INotificationService);
 			const clipboardService = accessor.get(IClipboardService);
-
-			if (provider !== 'github') {
-				await opener.open(URI.parse('https://aka.ms/vscode-remote/tunnels'));
-				return;
-			}
 
 			try {
 				const deviceRes = await tauriProxyJson<{

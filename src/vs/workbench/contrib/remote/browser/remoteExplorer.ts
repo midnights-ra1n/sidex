@@ -309,17 +309,6 @@ export class RemoteExplorerViewPane extends ViewPane {
 			});
 		}
 
-		children.push({
-			kind: 'leaf',
-			id: 'tunnel-signin-microsoft',
-			label: localize('remote.signInMicrosoft', 'Sign in with Microsoft'),
-			icon: Codicon.account,
-			active: false,
-			description: localize('remote.tunnelsProvider', 'Remote-Tunnels'),
-			actionLabel: localize('remote.signIn', 'Sign In'),
-			onActivate: () => this.commandService.executeCommand('sidex.remote.signInTunnel', 'microsoft')
-		});
-
 		if (!githubToken) {
 			children.push({
 				kind: 'leaf',
@@ -329,7 +318,7 @@ export class RemoteExplorerViewPane extends ViewPane {
 				active: false,
 				description: localize('remote.tunnelsProvider', 'Remote-Tunnels'),
 				actionLabel: localize('remote.signIn', 'Sign In'),
-				onActivate: () => this.commandService.executeCommand('sidex.remote.signInTunnel', 'github')
+				onActivate: () => this.commandService.executeCommand('sidex.remote.signInTunnel')
 			});
 		}
 
@@ -390,7 +379,7 @@ export class RemoteExplorerViewPane extends ViewPane {
 				icon: Codicon.github,
 				active: false,
 				actionLabel: localize('remote.signIn', 'Sign In'),
-				onActivate: () => this.commandService.executeCommand('sidex.remote.signInTunnel', 'github')
+				onActivate: () => this.commandService.executeCommand('sidex.remote.signInTunnel')
 			});
 		} else if (spaces.length === 0) {
 			children.push({
