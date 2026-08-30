@@ -1,0 +1,100 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # every Monday at 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  UPSTREAM_URL: https://github.com/sidenai/sidex.git
+  SYNC_BRANCH: sync/upstream
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream main
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          NEW_COMMITS=$(git rev-list --count main..upstream/main)
+          echo "count=$NEW_COMMITS" >> "$GITHUB_OUTPUT"
+          echo "Upstream is $NEW_COMMITS commit(s) ahead of main."
+
+      - name: Reset sync branch to current main
+        if: steps.check.outputs.count != '0'
+        run: |
+          git checkout -B "$SYNC_BRANCH" main
+
+      - name: Attempt merge
+        if: steps.check.outputs.count != '0'
+        id: merge
+        run: |
+          if git merge upstream/main --no-edit; then
+            echo "status=clean" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=conflict" >> "$GITHUB_OUTPUT"
+            git add -A
+            git commit -m "Merge upstream/main (unresolved conflicts, needs manual resolution)"
+          fi
+
+      - name: Push sync branch
+        if: steps.check.outputs.count != '0'
+        run: git push origin "$SYNC_BRANCH" --force
+
+      - name: Open or update PR
+        if: steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ steps.merge.outputs.status }}" = "clean" ]; then
+            TITLE="Sync upstream: ${{ steps.check.outputs.count }} commit(s), merges cleanly"
+            BODY="Clean merge from \`sidenai/sidex:main\` — no conflicts. Please still review before merging, in particular:
+
+          - \`.github/workflows/release.yml\`, \`build.yml\`, \`test.yml\` — confirm macOS wasn't reintroduced and \`draft: false\` is still set
+          - \`src/vs/platform/product/common/product.ts\` — confirm \`extensionsGallery\` still points only at our marketplace, no Microsoft CDN URLs
+          - \`src/vs/workbench/contrib/remote/browser/remote.contribution.ts\` / \`remoteExplorer.ts\` — confirm no Microsoft sign-in came back
+          - \`package.json\` / \`package-lock.json\` — confirm \`@microsoft/1ds-*\` / \`tas-client\` didn't come back"
+          else
+            TITLE="Sync upstream: ${{ steps.check.outputs.count }} commit(s), HAS CONFLICTS"
+            BODY="Merge from \`sidenai/sidex:main\` has unresolved conflicts (committed with conflict markers left in place). Check out \`$SYNC_BRANCH\` locally and resolve before merging:
+
+          \`\`\`
+          git fetch origin $SYNC_BRANCH
+          git checkout $SYNC_BRANCH
+          # resolve conflicts, then:
+          git add -A && git commit
+          git push
+          \`\`\`
+
+          Pay special attention if conflicts touch:
+          - \`.github/workflows/release.yml\`, \`build.yml\`, \`test.yml\` — don't accept upstream's macOS matrix entries or \`draft: true\`
+          - \`src/vs/platform/product/common/product.ts\` — don't accept upstream's Microsoft CDN URLs in \`extensionsGallery\`
+          - \`remote.contribution.ts\` / \`remoteExplorer.ts\` — don't accept upstream's Microsoft sign-in code
+          - \`package.json\` / \`package-lock.json\` — don't accept \`@microsoft/1ds-*\` / \`tas-client\` back in"
+          fi
+
+          EXISTING_PR=$(gh pr list --head "$SYNC_BRANCH" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING_PR" ]; then
+            gh pr edit "$EXISTING_PR" --title "$TITLE" --body "$BODY"
+          else
+            gh pr create --base main --head "$SYNC_BRANCH" --title "$TITLE" --body "$BODY"
+          fi
